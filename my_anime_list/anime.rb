@@ -15,7 +15,7 @@ module MyAnimeList
     # Scrape anime details page on MyAnimeList.net. Very fragile!
     def self.scrape_anime(id, cookie_string = nil)
       curl = Curl::Easy.new("http://myanimelist.net/anime/#{id}")
-      curl.headers['User-Agent'] = 'MyAnimeList Unofficial API (http://mal-api.com/)'
+      curl.headers['User-Agent'] = ENV['USER_AGENT']
       curl.cookies = cookie_string if cookie_string
       begin
         curl.perform
@@ -71,7 +71,7 @@ module MyAnimeList
       url = options[:new] ? 'http://myanimelist.net/includes/ajax.inc.php?t=61' : 'http://myanimelist.net/includes/ajax.inc.php?t=62'
 
       curl = Curl::Easy.new(url)
-      curl.headers['User-Agent'] = 'MyAnimeList Unofficial API (http://mal-api.com/)'
+      curl.headers['User-Agent'] = ENV['USER_AGENT']
       curl.cookies = cookie_string
       params = [
         Curl::PostField.content('aid', id),
@@ -105,7 +105,7 @@ module MyAnimeList
       anime = scrape_anime(id, cookie_string)
 
       curl = Curl::Easy.new("http://myanimelist.net/panel.php?go=edit&id=#{anime.listed_anime_id}")
-      curl.headers['User-Agent'] = 'MyAnimeList Unofficial API (http://mal-api.com/)'
+      curl.headers['User-Agent'] = ENV['USER_AGENT']
       curl.cookies = cookie_string
 
       begin
@@ -127,86 +127,89 @@ module MyAnimeList
     end
 
     def self.search(query)
+      perform_search "/anime.php?c[]=a&c[]=b&c[]=c&c[]=d&c[]=e&c[]=f&c[]=g&q=#{Curl::Easy.new.escape(query)}"
+    end
 
-      begin
-        response = Net::HTTP.start('myanimelist.net', 80) do |http|
-          http.get("/anime.php?c[]=a&c[]=b&c[]=c&c[]=d&c[]=e&c[]=f&c[]=g&q=#{Curl::Easy.new.escape(query)}")
-        end
+    def self.upcoming(options = {})
+      page = options[:page] || 1
+      # TODO: Implement page size in options.  Can we even control the page size when calling into MAL?
+      page_size = 20
+      limit = (page.to_i - 1) * page_size.to_i
+      start_date = Date.today
+      start_date = Date.parse(options[:start_date]) unless options[:start_date].nil?
+      perform_search "/anime.php?sm=#{start_date.month}&sd=#{start_date.day}&sy=#{start_date.year}&em=0&ed=0&ey=0&o=2&w=&c[]=a&c[]=d&c[]=a&c[]=b&c[]=c&c[]=d&c[]=e&c[]=f&c[]=g&cv=1&show=#{limit}"
+    end
 
-        case response
-        when Net::HTTPRedirection
-          redirected = true
-
-          # Strip everything after the anime ID - in cases where there is a non-ASCII character in the URL,
-          # MyAnimeList.net will return a page that says "Access has been restricted for this account".
-          redirect_url = response['location'].sub(%r{(http://myanimelist.net/anime/\d+)/?.*}, '\1')
-
-          response = Net::HTTP.start('myanimelist.net', 80) do |http|
-            http.get(redirect_url)
-          end
-        end
-
-      rescue Exception => e
-        raise MyAnimeList::UpdateError.new("Error searching anime with query '#{query}'. Original exception: #{e.message}", e)
-      end
-
-      results = []
-      if redirected
-        # If there's a single redirect, it means there's only 1 match and MAL is redirecting to the anime's details
-        # page.
-
-        anime = parse_anime_response(response.body)
-        results << anime
-
-      else
-        # Otherwise, parse the table of search results.
-
-        doc = Nokogiri::HTML(response.body)
-        results_table = doc.xpath('//div[@id="content"]/div[2]/table')
-
-        results_table.xpath('//tr').each do |results_row|
-
-          anime_title_node = results_row.at('td a strong')
-          next unless anime_title_node
-          url = anime_title_node.parent['href']
-          next unless url.match %r{http://myanimelist.net/anime/(\d+)/?.*}
-
-          anime = Anime.new
-          anime.id = $1.to_i
-          anime.title = anime_title_node.text
-          if image_node = results_row.at('td a img')
-            anime.image_url = image_node['src']
-          end
-
-          table_cell_nodes = results_row.search('td')
-
-          anime.episodes = table_cell_nodes[3].text.to_i
-          anime.members_score = table_cell_nodes[4].text.to_f
-          synopsis_node = results_row.at('div.spaceit')
-          if synopsis_node
-            synopsis_node.search('a').remove
-            anime.synopsis = synopsis_node.text.strip
-          end
-          anime.type = table_cell_nodes[2].text
-          anime.start_date = parse_start_date(table_cell_nodes[5].text)
-          anime.end_date = parse_end_date(table_cell_nodes[6].text)
-          anime.classification = table_cell_nodes[8].text if table_cell_nodes[8]
-
-          results << anime
-        end
-      end
-
-      results
+    def self.just_added(options = {})
+      page = options[:page] || 1
+      # TODO: Implement page size in options.  Can we even control the page size when calling into MAL?
+      page_size = 20
+      limit = (page.to_i - 1) * page_size.to_i
+      perform_search "/anime.php?o=9&c[]=a&c[]=b&c[]=c&c[]=d&c[]=e&c[]=f&c[]=g&cv=2&w=1&show=#{limit}"
     end
 
     # Returns top Anime.
     # Options:
-    #  * type - Type of anime to return. Possible values: TV, Movie, OVA, Special. Defaults to nothing, which returns
+    #  * type - Type of anime to return. Possible values: tv, movie, ova, special, bypopularity. Defaults to nothing, which returns
     #           top anime of any type.
     #  * page - Page of top anime to return. Defaults to 1.
     #  * per_page - Number of anime to return per page. Defaults to 30.
     def self.top(options = {})
-      []
+      page = options[:page] || 1
+      limit = (page.to_i - 1) * 30
+      type = options[:type].to_s.downcase
+
+      curl = Curl::Easy.new("http://myanimelist.net/topanime.php?type=#{type}&limit=#{limit}")
+      curl.headers['User-Agent'] = ENV['USER_AGENT']
+      begin
+        curl.perform
+      rescue Exception => e
+        raise MyAnimeList::NetworkError.new("Network error getting top anime. Original exception: #{e.message}.", e)
+      end
+
+      response = curl.body_str
+
+      doc = Nokogiri::HTML(response)
+
+      results = []
+
+      doc.search('div#content table tr').each do |results_row|
+        anime_title_node = results_row.at('td a strong')
+        next unless anime_title_node
+        anime_url = anime_title_node.parent['href']
+        next unless anime_url
+        anime_url.match %r{http://myanimelist.net/anime/(\d+)/?.*}
+
+        anime = Anime.new
+        anime.id = $1.to_i
+        anime.title = anime_title_node.text
+
+        table_cell_nodes = results_row.search('td')
+        content_cell = table_cell_nodes.at('div.spaceit_pad')
+
+        members_cell = content_cell.at('span.lightLink')
+        members = members_cell.text.strip.gsub!(/\D/, '').to_i
+        members_cell.remove
+
+        stats = content_cell.text.strip.split(',')
+        type = stats[0]
+        episodes = stats[1].gsub!(/\D/, '')
+        episodes = if episodes.size > 0 then episodes.to_i else nil end
+        members_score = stats[2].match(/\d+(\.\d+)?/).to_s.to_f
+
+        anime.type = type
+        anime.episodes = episodes
+        anime.members_count = members
+        anime.members_score = members_score
+
+        if image_node = results_row.at('td a img')
+          anime.image_url = image_node['src']
+        end
+
+        results << anime
+      end
+
+      results
     end
 
     def watched_status=(value)
@@ -458,6 +461,76 @@ module MyAnimeList
     end
 
     private
+      def self.perform_search(url)
+        begin
+          response = Net::HTTP.start('myanimelist.net', 80) do |http|
+            http.get(url, {'User-Agent' => ENV['USER_AGENT']})
+          end
+
+          case response
+            when Net::HTTPRedirection
+              redirected = true
+
+              # Strip everything after the anime ID - in cases where there is a non-ASCII character in the URL,
+              # MyAnimeList.net will return a page that says "Access has been restricted for this account".
+              redirect_url = response['location'].sub(%r{(http://myanimelist.net/anime/\d+)/?.*}, '\1')
+
+              response = Net::HTTP.start('myanimelist.net', 80) do |http|
+                http.get(redirect_url, {'User-Agent' => ENV['USER_AGENT']})
+              end
+          end
+
+        rescue Exception => e
+          raise MyAnimeList::UpdateError.new("Error searching anime with query '#{query}'. Original exception: #{e.message}", e)
+        end
+
+        results = []
+        if redirected
+          # If there's a single redirect, it means there's only 1 match and MAL is redirecting to the anime's details
+          # page.
+
+          anime = parse_anime_response(response.body)
+          results << anime
+
+        else
+          # Otherwise, parse the table of search results.
+          doc = Nokogiri::HTML(response.body)
+          results_table = doc.xpath('//div[@id="content"]/div[2]/table')
+
+          results_table.xpath('//tr').each do |results_row|
+
+            anime_title_node = results_row.at('td a strong')
+            next unless anime_title_node
+            url = anime_title_node.parent['href']
+            next unless url.match %r{http://myanimelist.net/anime/(\d+)/?.*}
+
+            anime = Anime.new
+            anime.id = $1.to_i
+            anime.title = anime_title_node.text
+            if image_node = results_row.at('td a img')
+              anime.image_url = image_node['src']
+            end
+
+            table_cell_nodes = results_row.search('td')
+
+            anime.episodes = table_cell_nodes[3].text.to_i
+            anime.members_score = table_cell_nodes[4].text.to_f
+            synopsis_node = results_row.at('div.spaceit')
+            if synopsis_node
+              synopsis_node.search('a').remove
+              anime.synopsis = synopsis_node.text.strip
+            end
+            anime.type = table_cell_nodes[2].text
+            anime.start_date = parse_start_date(table_cell_nodes[5].text)
+            anime.end_date = parse_end_date(table_cell_nodes[6].text)
+            anime.classification = table_cell_nodes[8].text if table_cell_nodes[8]
+
+            results << anime
+          end
+        end
+
+        results
+      end
 
       def self.parse_anime_response(response)
         doc = Nokogiri::HTML(response)

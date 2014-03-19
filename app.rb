@@ -35,7 +35,7 @@ class App < Sinatra::Base
     # Blanket whitelist all cross-domain xhr requests
     allow do
       origins '*'
-      resource '*'
+      resource '*', :headers => :any, :methods => [:get, :post, :put, :delete]
     end
   end
 
@@ -246,7 +246,6 @@ class App < Sinatra::Base
     end
   end
 
-
   # GET /anime/search
   # Search for anime.
   get '/anime/search' do
@@ -306,15 +305,67 @@ class App < Sinatra::Base
     end
   end
 
+  # GET /anime/popular
+  # Get the popular anime.
+  get '/anime/popular' do
+    anime = MyAnimeList::Anime.top(
+      :type => 'bypopularity',
+      :page => params[:page],
+      :per_page => params[:per_page]
+    )
+
+    case params[:format]
+      when 'xml'
+        anime.to_xml
+      else
+        params[:callback].nil? ? anime.to_json : "#{params[:callback]}(#{anime.to_json})"
+    end
+  end
+
+  # GET /anime/upcoming
+  # Get the upcoming anime
+  get '/anime/upcoming' do
+    anime = MyAnimeList::Anime.upcoming(
+      :page => params[:page],
+      :per_page => params[:per_page],
+      :start_date => params[:start_date]
+    )
+
+    case params[:format]
+      when 'xml'
+        anime.to_xml
+      else
+        params[:callback].nil? ? anime.to_json : "#{params[:callback]}(#{anime.to_json}"
+    end
+  end
+
+  # GET /anime/just_added
+  # Get just added anime
+  get '/anime/just_added' do
+    anime = MyAnimeList::Anime.just_added(
+        :page => params[:page],
+        :per_page => params[:per_page]
+    )
+
+    case params[:format]
+      when 'xml'
+        anime.to_xml
+      else
+        params[:callback].nil? ? anime.to_json : "#{params[:callback]}(#{anime.to_json}"
+    end
+  end
 
   # GET /history/#{username}
   # Get user's history.
-  # FIXME implement /history/:username/anime and /history/:username/manga - use regex for routing?
-  get '/history/:username' do
+  get '/history/:username/?:type?' do
     user = MyAnimeList::User.new
     user.username = params[:username]
 
-    history = user.history
+    options = Hash.new.tap do |options|
+      options[:type] = params[:type].to_sym unless params[:type].nil?
+    end
+
+    history = user.history(options)
 
     case params[:format]
     when 'xml'
@@ -324,6 +375,21 @@ class App < Sinatra::Base
     end
   end
 
+  # GET /profile/#{username}
+  # Get user's profile information.
+  get '/profile/:username' do
+    user = MyAnimeList::User.new
+    user.username = params[:username]
+
+    profile = user.profile
+
+    case params[:format]
+    when 'xml'
+      profile.to_xml
+    else
+      params[:callback].nil? ? profile.to_json : "#{params[:callback]}(#{profile.to_json})"
+    end
+  end
 
   # GET /manga/#{manga_id}
   # Get a manga's details.

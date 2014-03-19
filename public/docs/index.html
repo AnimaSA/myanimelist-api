@@ -59,6 +59,7 @@
     <li>
       <a href="#read_methods">Reading data from MyAnimeList</a>
       <ul>
+        <li><a href="#read_profile">/profile - Read a user's profile</a></li>
         <li><a href="#read_anime_list">/animelist - Read an anime list</a></li>
         <li><a href="#read_anime">/anime - Read an anime's details</a></li>
         <li><a href="#read_history">/history - Read a user's history</a></li>
@@ -108,6 +109,12 @@
         <th>Example</th>
       </thead>
       <tbody>
+
+        <tr>
+          <td><a href="#read_profile">/profile/<strong>username</strong></a></td>
+          <td>Fetch a user's MAL profile</td>
+          <td><a href="http://mal-api.com/animelist/xinil">http://mal-api.com/profile/xinil</a></td>
+        </tr>
 
         <tr>
           <td><a href="#read_anime_list">/animelist/<strong>username</strong></a></td>
@@ -466,6 +473,18 @@
       <li><code>score</code> - User's score for the manga, from 1 to 10.</li>
     </ul>
 
+
+    <h4 id="type_user">User</h4>
+
+    <p>A representation of a MyAnimeList user.</p>
+
+    <p>Format:</p>
+    <ul>
+      <li><code>details</code> - user's general (not anime/manga-specific) details</a>.</li>
+      <li><code>anime_stats</code> - user's anime statistics</a>.</li>
+      <li><code>manga_stats</code> - user's manga statistics</a>.</li>
+    </ul>
+
   </div>
 
 
@@ -519,6 +538,21 @@
 
 
   <h2 id="read_methods">Reading data from MyAnimeList</h2>
+
+  <div class="section">
+    <h3 id="read_profile">/profile - Read a user's profile</h3>
+
+    <p>Fetch the MAL profile for the username:</p>
+
+    <blockquote>
+      <p><code>http://mal-api.com/profile/<strong>username</strong></code></p>
+
+      <p>Example: <a href="http://mal-api.com/profile/xinil">http://mal-api.com/profile/xinil</a></p>
+    </blockquote>
+
+    <p>The response is an <a href="#type_user">user</a>.</p>
+  </div>
+
 
   <div class="section">
     <h3 id="read_anime_list">/animelist - Read an anime list</h3>
@@ -602,8 +636,6 @@
   <div class="section">
     <h3 id="read_top_anime">/anime/top - Read the top anime</h3>
 
-    <p class="warn"><strong>NOT YET IMPLEMENTED</strong></p>
-
     <p>Fetch the top ranking anime.</p>
 
     <blockquote>
@@ -614,10 +646,12 @@
 
     <p>The following optional parameters are supported:</p>
     <ul>
-      <li><code>type</code> - Type of anime to return. Possible values: <code>TV</code>, <code>Movie</code>, <code>OVA</code>, <code>Special</code>. Defaults to nothing, which returns top anime of any type.</li>
+      <li><code>type</code> - Type of anime to return. Possible values: <code>tv</code>, <code>movie</code>, <code>ova</code>, <code>special</code>. Defaults to nothing, which returns top anime of any type.</li>
       <li><code>page</code> - Page of top anime to return. Defaults to 1, i.e. the 1st page.</li>
-      <li><code>per_page</code> - Number of anime to return per page. Defaults to 30.</li>
+      <li><code>per_page</code> - Number of anime to return per page. Defaults to 30. <span class="warn"><strong>NOT YET IMPLEMENTED</strong></span></li>
     </ul>
+
+    <p>The response is a list of <a href="#type_anime">anime</a>. Only the following anime properties are available: <code>id</code>, <code>title</code>, <code>episodes</code>, <code>type</code>, <code>image_url</code>, <code>members_count</code>, <code>members_score</code></p>
 
     <h4>How are the top anime determined?</h4>
 
@@ -636,8 +670,6 @@
   <div class="section">
     <h3 id="read_popular_anime">/anime/popular - Read the popular anime</h3>
 
-    <p class="warn"><strong>NOT YET IMPLEMENTED</strong></p>
-
     <p>Fetch the most popular anime. The popularity of an anime is determined by the number of MyAnimeList members watching it.</p>
 
     <blockquote>
@@ -649,15 +681,15 @@
     <p>The following optional parameters are supported:</p>
     <ul>
       <li><code>page</code> - Page of anime to return. Defaults to 1, i.e. the 1st page.</li>
-      <li><code>per_page</code> - Number of anime to return per page. Defaults to 30.</li>
+      <li><code>per_page</code> - Number of anime to return per page. Defaults to 30. <span class="warn"><strong>NOT YET IMPLEMENTED</strong></span></li>
     </ul>
+
+    <p>The response is a list of <a href="#type_anime">anime</a>. Only the following anime properties are available: <code>id</code>, <code>title</code>, <code>episodes</code>, <code>type</code>, <code>image_url</code>, <code>members_count</code>, <code>score</code></p>
   </div>
 
 
   <div class="section">
     <h3 id="read_upcoming_anime">/anime/upcoming - Read the upcoming anime</h3>
-
-    <p class="warn"><strong>NOT YET IMPLEMENTED</strong></p>
 
     <p>Fetch the upcoming anime. This is a list of anime sorted by airing date.</p>
 
@@ -671,15 +703,15 @@
     <ul>
       <li><code>start_date</code> - Only anime which air after this date (in <code>YYYYMMDD</code> format) are returned. Defaults to the current date in UTC.</li>
       <li><code>page</code> - Page of anime to return. Defaults to 1, i.e. the 1st page.</li>
-      <li><code>per_page</code> - Number of anime to return per page. Defaults to 20.</li>
+      <li><code>per_page</code> - Number of anime to return per page. Defaults to 20. <span class="warn"><strong>NOT YET IMPLEMENTED</strong></span></li>
     </ul>
+
+    <p>The response is a list of <a href="#type_anime">anime</a>. Only the following anime properties are available: <code>id</code>, <code>title</code>, <code>episodes</code>, <code>type</code>, <code>synopsis</code>, <code>image_url</code>, <code>members_score</code>, <code>start_date</code>, <code>end_date</code>, <code>classification</code></p>
   </div>
 
 
   <div class="section">
     <h3 id="read_just_added_anime">/anime/just_added - Read the anime that have just been added to MyAnimeList</h3>
-
-    <p class="warn"><strong>NOT YET IMPLEMENTED</strong></p>
 
     <p>Fetch anime that have just been added to the MyAnimeList database. The anime are sorted with the most recently added ones in front.</p>
 
@@ -692,8 +724,10 @@
     <p>The following optional parameters are supported:</p>
     <ul>
       <li><code>page</code> - Page of anime to return. Defaults to 1, i.e. the 1st page.</li>
-      <li><code>per_page</code> - Number of anime to return per page. Defaults to 20.</li>
+      <li><code>per_page</code> - Number of anime to return per page. Defaults to 20. <span class="warn"><strong>NOT YET IMPLEMENTED</strong></span></li>
     </ul>
+
+    <p>The response is a list of <a href="#type_anime">anime</a>. Only the following anime properties are available: <code>id</code>, <code>title</code>, <code>episodes</code>, <code>type</code>, <code>synopsis</code>, <code>image_url</code>, <code>members_score</code>, <code>start_date</code>, <code>end_date</code>, <code>classification</code></p>
   </div>
 
 
